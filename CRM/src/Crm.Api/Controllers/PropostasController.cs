@@ -12,15 +12,18 @@ public class PropostasController : ControllerBase
     private readonly IPropostaService _propostaService;
     private readonly IPdfService _pdfService;
     private readonly IValidator<CriarPropostaRequest> _validator;
+    private readonly IValidator<AtualizarPropostaRequest> _atualizarValidator;
 
     public PropostasController(
         IPropostaService propostaService,
         IPdfService pdfService,
-        IValidator<CriarPropostaRequest> validator)
+        IValidator<CriarPropostaRequest> validator,
+        IValidator<AtualizarPropostaRequest> atualizarValidator)
     {
         _propostaService = propostaService;
         _pdfService = pdfService;
         _validator = validator;
+        _atualizarValidator = atualizarValidator;
     }
 
     [HttpGet]
@@ -61,6 +64,10 @@ public class PropostasController : ControllerBase
     [HttpPut("{id:long}")]
     public async Task<ActionResult<PropostaDto>> Atualizar(long id, [FromBody] AtualizarPropostaRequest request, CancellationToken ct = default)
     {
+        var validation = await _atualizarValidator.ValidateAsync(request, ct);
+        if (!validation.IsValid)
+            return BadRequest(validation.ToDictionary());
+
         try
         {
             var atualizado = await _propostaService.AtualizarAsync(id, request, User?.Identity?.Name ?? "API", ct);

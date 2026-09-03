@@ -25,7 +25,9 @@ public class CriarPropostaRequestValidator : AbstractValidator<CriarPropostaRequ
 
         RuleFor(x => x.Itens)
             .NotEmpty()
-            .WithMessage("A proposta deve conter ao menos um item.");
+            .WithMessage("A proposta deve conter ao menos um item.")
+            .Must(itens => itens != null && itens.Sum(i => i.Quantidade * i.ValorUnitario) > 0)
+            .WithMessage("O valor total da proposta deve ser maior que zero (não pode ser zero ou negativa).");
 
         RuleForEach(x => x.Itens).ChildRules(item =>
         {
@@ -40,6 +42,36 @@ public class CriarPropostaRequestValidator : AbstractValidator<CriarPropostaRequ
             item.RuleFor(i => i.ValorUnitario)
                 .GreaterThanOrEqualTo(0)
                 .WithMessage("O valor unitário não pode ser negativo.");
+        });
+    }
+}
+
+public class AtualizarPropostaRequestValidator : AbstractValidator<AtualizarPropostaRequest>
+{
+    public AtualizarPropostaRequestValidator()
+    {
+        RuleFor(x => x.EmpresaEmissoraId)
+            .GreaterThan(0).WithMessage("A empresa emissora é obrigatória.");
+
+        RuleFor(x => x.ClienteId)
+            .GreaterThan(0).WithMessage("O cliente é obrigatório.");
+
+        RuleFor(x => x.RepresentanteId)
+            .GreaterThan(0).WithMessage("O representante é obrigatório.");
+
+        RuleFor(x => x.ValidadeDias)
+            .GreaterThan(0).WithMessage("A validade da proposta deve ser de pelo menos 1 dia.");
+
+        RuleFor(x => x.Itens)
+            .NotEmpty().WithMessage("A proposta deve conter ao menos um item.")
+            .Must(itens => itens != null && itens.Sum(i => i.Quantidade * i.ValorUnitario) > 0)
+            .WithMessage("O valor total da proposta deve ser maior que zero (não pode ser zero ou negativa).");
+
+        RuleForEach(x => x.Itens).ChildRules(item =>
+        {
+            item.RuleFor(i => i.Descricao).NotEmpty().WithMessage("A descrição do item é obrigatória.");
+            item.RuleFor(i => i.Quantidade).GreaterThan(0).WithMessage("A quantidade do item deve ser maior que zero.");
+            item.RuleFor(i => i.ValorUnitario).GreaterThanOrEqualTo(0).WithMessage("O valor unitário não pode ser negativo.");
         });
     }
 }
