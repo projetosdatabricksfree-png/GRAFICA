@@ -43,7 +43,7 @@ services:
       - POSTGRES_PASSWORD=ags_pass
       - POSTGRES_DB=ags_db
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - ags_postgresql_data:/var/lib/postgresql/data
       - ./database/postgrees:/docker-entrypoint-initdb.d
