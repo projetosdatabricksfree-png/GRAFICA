@@ -1,0 +1,484 @@
+@page "/propostas/nova"
+@page "/propostas/{Id:long}/editar"
+@inject IPropostaService PropostaService
+@inject IClienteService ClienteService
+@inject IRepository<ProdutoServico> ProdutoRepo
+@inject IRepository<Representante> RepresentanteRepo
+@inject IRepository<EmpresaEmissora> EmpresaRepo
+@inject IRepository<FormaPagamento> FormaPgtoRepo
+@inject IPdfService PdfService
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+
+<PageTitle>@(Id.HasValue ? $"Editar Orçamento #{_codigoProposta}" : "Novo Orçamento Gráfico") • AgsPrint</PageTitle>
+
+<div class="d-flex justify-space-between align-center mb-6">
+    <div>
+        <MudBreadcrumbs Items="_breadcrumbs" Class="pa-0 mb-1" />
+        <MudText Typo="Typo.h4" Style="font-weight: 800; letter-spacing: -0.5px;">
+            @(Id.HasValue ? $"Editar Orçamento #{_codigoProposta}" : "Novo Orçamento Gráfico")
+        </MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary">
+            Configuração de itens técnicos, especificações de acabamento e condições comerciais
+        </MudText>
+    </div>
+    <div class="d-flex gap-2">
+        <MudButton Variant="Variant.Outlined" Color="Color.Default" StartIcon="@Icons.Material.Filled.ArrowBack" 
+                   OnClick="@(() => Nav.NavigateTo("/propostas"))">
+            Voltar
+        </MudButton>
+        @if (Id.HasValue)
+        {
+            <MudButton Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Filled.PictureAsPdf" 
+                       OnClick="@BaixarPdfAsync" Disabled="_salvando">
+                Baixar PDF
+            </MudButton>
+        }
+        <MudButton Variant="Variant.Filled" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Save" 
+                   OnClick="@SalvarAsync" Disabled="_salvando" 
+                   Style="font-weight: 700; box-shadow: 0 4px 14px rgba(242,100,25,0.4);">
+            @if (_salvando)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                <span>Salvando...</span>
+            }
+            else
+            {
+                <span>Salvar Proposta</span>
+            }
+        </MudButton>
+    </div>
+</div>
+
+@if (_carregando)
+{
+    <div class="d-flex justify-center align-center py-12">
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Large" />
+    </div>
+}
+else
+{
+    <!-- DADOS GERAIS DO CABEÇALHO -->
+    <MudPaper Elevation="4" Class="pa-6 mb-6" Style="border-radius: 12px;">
+        <MudText Typo="Typo.h6" Class="mb-4" Style="font-weight: 700; color: #0F4C81;">
+            <MudIcon Icon="@Icons.Material.Filled.Assignment" Class="mr-2" Size="Size.Small" />
+            Dados da Proposta e Cliente
+        </MudText>
+
+        <MudGrid>
+            <MudItem xs="12" sm="6" md="4">
+                <MudSelect T="long" Label="Cliente" Variant="Variant.Outlined" @bind-Value="_clienteId" Required="true">
+                    @foreach (var c in _clientes)
+                    {
+                        <MudSelectItem Value="@c.Id">@c.Nome @(string.IsNullOrWhiteSpace(c.CodigoCliente) ? "" : $"({c.CodigoCliente})")</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="4">
+                <MudSelect T="long" Label="Representante Comercial" Variant="Variant.Outlined" @bind-Value="_representanteId" Required="true">
+                    @foreach (var r in _representantes)
+                    {
+                        <MudSelectItem Value="@r.Id">@r.Nome</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="4">
+                <MudSelect T="long" Label="Empresa Emissora" Variant="Variant.Outlined" @bind-Value="_empresaId" Required="true">
+                    @foreach (var e in _empresas)
+                    {
+                        <MudSelectItem Value="@e.Id">@e.NomeFantasia</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="3">
+                <MudSelect T="int" Label="Forma de Pagamento" Variant="Variant.Outlined" @bind-Value="_formaPagamentoId">
+                    @foreach (var f in _formasPgto)
+                    {
+                        <MudSelectItem Value="@f.Id">@f.Nome</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="3">
+                <MudNumericField T="int" Label="Validade da Proposta (dias)" Variant="Variant.Outlined" @bind-Value="_validadeDias" Min="1" />
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="3">
+                <MudTextField T="string" Label="Prazo de Entrega" Variant="Variant.Outlined" @bind-Value="_prazoEntrega" />
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="3">
+                <MudTextField T="string" Label="Observações Gerais" Variant="Variant.Outlined" @bind-Value="_observacoes" />
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+
+    <!-- ITENS DA PROPOSTA E ESPECIFICAÇÕES TÉCNICAS -->
+    <MudPaper Elevation="4" Class="pa-6 mb-6" Style="border-radius: 12px;">
+        <div class="d-flex justify-space-between align-center mb-4">
+            <div>
+                <MudText Typo="Typo.h6" Style="font-weight: 700; color: #0F4C81;">
+                    <MudIcon Icon="@Icons.Material.Filled.Inventory" Class="mr-2" Size="Size.Small" />
+                    Itens da Proposta & Especificações Técnicas Gráficas
+                </MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                    Configure papel, formato, cores e acabamentos específicos de cada item
+                </MudText>
+            </div>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" 
+                       OnClick="@AdicionarItem" Size="Size.Medium">
+                Adicionar Item
+            </MudButton>
+        </div>
+
+        @if (_itens.Count == 0)
+        {
+            <MudAlert Severity="Severity.Warning" Class="my-4">
+                Nenhum item adicionado. Adicione ao menos um item para emitir o orçamento.
+            </MudAlert>
+        }
+        else
+        {
+            @for (int i = 0; i < _itens.Count; i++)
+            {
+                var index = i;
+                var item = _itens[i];
+
+                <MudCard Elevation="2" Class="mb-4" Style="border: 1px solid #CBD5E1; border-radius: 8px;">
+                    <MudCardHeader Class="py-2 px-4" Style="background: #F8FAFC; border-bottom: 1px solid #E2E8F0;">
+                        <CardHeaderContent>
+                            <div class="d-flex align-center gap-2">
+                                <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Filled" Style="font-weight: 700;">
+                                    Item #@(index + 1)
+                                </MudChip>
+                                <MudText Typo="Typo.subtitle2" Style="font-weight: 700;">
+                                    @(string.IsNullOrWhiteSpace(item.Descricao) ? "Novo Item de Impressão" : item.Descricao)
+                                </MudText>
+                            </div>
+                        </CardHeaderContent>
+                        <CardHeaderActions>
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" 
+                                           OnClick="@(() => RemoverItem(index))" />
+                        </CardHeaderActions>
+                    </MudCardHeader>
+
+                    <MudCardContent Class="pa-4">
+                        <!-- LINHA 1: VALORES COMERCIAIS -->
+                        <MudGrid>
+                            <MudItem xs="12" sm="3" md="2">
+                                <MudTextField T="string" Label="Código" Variant="Variant.Outlined" @bind-Value="item.CodigoItem" />
+                            </MudItem>
+                            <MudItem xs="12" sm="4" md="3">
+                                <MudTextField T="string" Label="Grupo" Variant="Variant.Outlined" @bind-Value="item.Grupo" Required="true" />
+                            </MudItem>
+                            <MudItem xs="12" sm="5" md="3">
+                                <MudTextField T="string" Label="Descrição do Item" Variant="Variant.Outlined" @bind-Value="item.Descricao" Required="true" />
+                            </MudItem>
+                            <MudItem xs="6" sm="4" md="2">
+                                <MudNumericField T="decimal" Label="Quantidade" Variant="Variant.Outlined" 
+                                                 Value="item.Quantidade" 
+                                                 ValueChanged="@((v) => { item.Quantidade = v; RecalcularTotais(); })" 
+                                                 Min="1" />
+                            </MudItem>
+                            <MudItem xs="6" sm="4" md="2">
+                                <MudNumericField T="decimal" Label="Vlr. Unitário (R$)" Variant="Variant.Outlined" 
+                                                 Value="item.ValorUnitario" 
+                                                 ValueChanged="@((v) => { item.ValorUnitario = v; RecalcularTotais(); })" 
+                                                 Format="N4" />
+                            </MudItem>
+                        </MudGrid>
+
+                        <!-- LINHA 2: ESPECIFICAÇÕES TÉCNICAS (CONFORME MODELO INPRIMA) -->
+                        <MudExpansionPanels Dense="true" Class="mt-3">
+                            <MudExpansionPanel Text="Especificações Técnicas Gráficas (Formato, Papel, Cores, Acabamento)" Expanded="true">
+                                <MudGrid Class="pt-2">
+                                    <MudItem xs="12" sm="6" md="3">
+                                        <MudTextField T="string" Label="Formato" Variant="Variant.Outlined" 
+                                                      Placeholder="Ex: 15,8 cm x 21 cm" 
+                                                      @bind-Value="item.Especificacoes.Formato" />
+                                    </MudItem>
+                                    <MudItem xs="12" sm="6" md="3">
+                                        <MudTextField T="string" Label="Papel / Gramatura" Variant="Variant.Outlined" 
+                                                      Placeholder="Ex: Couchê Fosco 300 g/m²" 
+                                                      @bind-Value="item.Especificacoes.Papel" />
+                                    </MudItem>
+                                    <MudItem xs="12" sm="6" md="2">
+                                        <MudTextField T="string" Label="Cores" Variant="Variant.Outlined" 
+                                                      Placeholder="Ex: 4 x 0 ou 4 x 4" 
+                                                      @bind-Value="item.Especificacoes.Cores" />
+                                    </MudItem>
+                                    <MudItem xs="12" sm="6" md="4">
+                                        <MudTextField T="string" Label="Acabamento" Variant="Variant.Outlined" 
+                                                      Placeholder="Ex: Corte especial / Laminação BOPP Fosco" 
+                                                      @bind-Value="item.Especificacoes.Acabamento" />
+                                    </MudItem>
+                                    <MudItem xs="12">
+                                        <MudTextField T="string" Label="Observações Técnicas do Item" Variant="Variant.Outlined" 
+                                                      @bind-Value="item.Especificacoes.Observacoes" />
+                                    </MudItem>
+                                </MudGrid>
+                            </MudExpansionPanel>
+                        </MudExpansionPanels>
+
+                        <!-- TOTAL DO ITEM -->
+                        <div class="d-flex justify-end align-center mt-3 pr-2">
+                            <MudText Typo="Typo.body2" Class="mr-2">Subtotal do Item:</MudText>
+                            <MudText Typo="Typo.h6" Style="font-weight: 800; color: #0F4C81;">
+                                R$ @((item.Quantidade * item.ValorUnitario).ToString("N2"))
+                            </MudText>
+                        </div>
+                    </MudCardContent>
+                </MudCard>
+            }
+
+            <!-- TOTAL GERAL DA PROPOSTA -->
+            <MudPaper Elevation="2" Class="pa-4 d-flex justify-space-between align-center" Style="background: #0A2E50; color: white; border-radius: 8px;">
+                <div>
+                    <MudText Typo="Typo.subtitle1" Style="font-weight: 700;">TOTAL GERAL DO ORÇAMENTO</MudText>
+                    <MudText Typo="Typo.caption" Style="opacity: 0.8;">Somatório de todos os @(_itens.Count) itens técnicos calculados</MudText>
+                </div>
+                <MudText Typo="Typo.h4" Style="font-weight: 900; color: #10B981;">
+                    R$ @_valorTotalGeral.ToString("N2")
+                </MudText>
+            </MudPaper>
+        }
+    </MudPaper>
+}
+
+@code {
+    [Parameter] public long? Id { get; set; }
+
+    private bool _carregando = true;
+    private bool _salvando = false;
+    private long _codigoProposta;
+
+    private long _clienteId;
+    private long _representanteId;
+    private long _empresaId;
+    private int _formaPagamentoId = 1;
+    private int _validadeDias = 10;
+    private string _prazoEntrega = "A combinar";
+    private string? _observacoes;
+    private decimal _valorTotalGeral = 0;
+
+    private List<ClienteDto> _clientes = new();
+    private List<Representante> _representantes = new();
+    private List<EmpresaEmissora> _empresas = new();
+    private List<FormaPagamento> _formasPgto = new();
+
+    private List<ItemPropostaRequest> _itens = new();
+
+    private List<BreadcrumbItem> _breadcrumbs = new()
+    {
+        new("Início", href: "/"),
+        new("Propostas", href: "/propostas"),
+        new("Edição", href: null, disabled: true)
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CarregarDadosBaseAsync();
+
+        if (Id.HasValue)
+        {
+            await CarregarPropostaAsync(Id.Value);
+        }
+        else
+        {
+            // Item default inicial com base no modelo
+            _itens.Add(new ItemPropostaRequest
+            {
+                CodigoItem = "116318",
+                Grupo = "Divisoria com aba",
+                Descricao = "Divisoria com aba 120 ( )",
+                Quantidade = 120,
+                ValorUnitario = 2.99m,
+                Especificacoes = new()
+                {
+                    Formato = "15,8 cm x 21 cm",
+                    Papel = "Couchê Fosco 300 g/m²",
+                    Cores = "4 x 0",
+                    Acabamento = "Corte especial / Laminação BOPP Frente/Verso Fosco"
+                }
+            });
+            RecalcularTotais();
+            _carregando = false;
+        }
+    }
+
+    private async Task CarregarDadosBaseAsync()
+    {
+        try
+        {
+            _clientes = await ClienteService.ListarAsync();
+            _representantes = await RepresentanteRepo.BuscarAsync(r => r.Ativo);
+            _empresas = await EmpresaRepo.BuscarAsync(e => e.Ativo);
+            _formasPgto = await FormaPgtoRepo.BuscarAsync(f => f.Ativo);
+
+            if (_clientes.Any()) _clienteId = _clientes.First().Id;
+            if (_representantes.Any()) _representanteId = _representantes.First().Id;
+            if (_empresas.Any()) _empresaId = _empresas.First().Id;
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Erro ao carregar dados auxiliares: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task CarregarPropostaAsync(long id)
+    {
+        try
+        {
+            _carregando = true;
+            var p = await PropostaService.ObterPorIdAsync(id);
+            if (p == null)
+            {
+                Snackbar.Add("Proposta não encontrada.", Severity.Warning);
+                Nav.NavigateTo("/propostas");
+                return;
+            }
+
+            _codigoProposta = p.Codigo;
+            _clienteId = p.ClienteId;
+            _representanteId = p.RepresentanteId;
+            _empresaId = p.EmpresaEmissoraId;
+            _formaPagamentoId = p.FormaPagamentoId;
+            _validadeDias = p.ValidadeDias;
+            _prazoEntrega = p.PrazoEntrega;
+            _observacoes = p.Observacoes;
+
+            _itens = p.Itens.Select(i => new ItemPropostaRequest
+            {
+                ProdutoServicoId = i.ProdutoServicoId,
+                CodigoItem = i.CodigoItem,
+                Grupo = i.Grupo,
+                Descricao = i.Descricao,
+                Quantidade = i.Quantidade,
+                ValorUnitario = i.ValorUnitario,
+                Especificacoes = i.Especificacoes ?? new()
+            }).ToList();
+
+            RecalcularTotais();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Erro ao carregar proposta: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _carregando = false;
+        }
+    }
+
+    private void AdicionarItem()
+    {
+        _itens.Add(new ItemPropostaRequest
+        {
+            CodigoItem = (116317 + _itens.Count + 1).ToString(),
+            Grupo = "Material Gráfico",
+            Descricao = "Novo Item",
+            Quantidade = 100,
+            ValorUnitario = 1.00m,
+            Especificacoes = new()
+            {
+                Formato = "A4 (21 x 29,7 cm)",
+                Papel = "Couchê Brilho 150 g/m²",
+                Cores = "4 x 4",
+                Acabamento = "Refile simples"
+            }
+        });
+        RecalcularTotais();
+    }
+
+    private void RemoverItem(int index)
+    {
+        if (index >= 0 && index < _itens.Count)
+        {
+            _itens.RemoveAt(index);
+            RecalcularTotais();
+        }
+    }
+
+    private void RecalcularTotais()
+    {
+        _valorTotalGeral = _itens.Sum(i => Math.Round(i.Quantidade * i.ValorUnitario, 2, MidpointRounding.AwayFromZero));
+    }
+
+    private async Task SalvarAsync()
+    {
+        if (_itens.Count == 0)
+        {
+            Snackbar.Add("Adicione ao menos um item ao orçamento.", Severity.Warning);
+            return;
+        }
+
+        try
+        {
+            _salvando = true;
+
+            if (Id.HasValue)
+            {
+                var req = new AtualizarPropostaRequest
+                {
+                    EmpresaEmissoraId = _empresaId,
+                    ClienteId = _clienteId,
+                    RepresentanteId = _representanteId,
+                    FormaPagamentoId = _formaPagamentoId,
+                    ValidadeDias = _validadeDias,
+                    PrazoEntrega = _prazoEntrega,
+                    Observacoes = _observacoes,
+                    Itens = _itens
+                };
+                await PropostaService.AtualizarAsync(Id.Value, req, "Suzana Gomes");
+                Snackbar.Add($"Orçamento #{_codigoProposta} atualizado com sucesso!", Severity.Success);
+            }
+            else
+            {
+                var req = new CriarPropostaRequest
+                {
+                    EmpresaEmissoraId = _empresaId,
+                    ClienteId = _clienteId,
+                    RepresentanteId = _representanteId,
+                    FormaPagamentoId = _formaPagamentoId,
+                    ValidadeDias = _validadeDias,
+                    PrazoEntrega = _prazoEntrega,
+                    Observacoes = _observacoes,
+                    Itens = _itens
+                };
+                var criado = await PropostaService.CriarAsync(req, "Suzana Gomes");
+                Snackbar.Add($"Orçamento #{criado.Codigo} criado com sucesso!", Severity.Success);
+                Nav.NavigateTo($"/propostas/{criado.Id}/editar");
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Erro ao salvar proposta: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _salvando = false;
+        }
+    }
+
+    private async Task BaixarPdfAsync()
+    {
+        if (!Id.HasValue) return;
+
+        try
+        {
+            Snackbar.Add($"Gerando PDF QuestPDF...", Severity.Info);
+            var bytes = await PdfService.GerarPropostaPdfAsync(Id.Value);
+            var base64 = Convert.ToBase64String(bytes);
+            await JS.InvokeVoidAsync("downloadFileFromBase64", $"Proposta_{_codigoProposta}.pdf", base64);
+            Snackbar.Add($"PDF baixado com sucesso!", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Erro ao gerar PDF: {ex.Message}", Severity.Error);
+        }
+    }
+}

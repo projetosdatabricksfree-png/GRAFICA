@@ -1,0 +1,228 @@
+@page "/clientes"
+@inject IClienteService ClienteService
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>Clientes & Contatos • AgsPrint</PageTitle>
+
+<div class="d-flex justify-space-between align-center mb-6">
+    <div>
+        <MudText Typo="Typo.h4" Style="font-weight: 800; letter-spacing: -0.5px;">Clientes & Contatos</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary">Base cadastral de tomadores de serviços gráficos e compradores</MudText>
+    </div>
+    <MudButton Variant="Variant.Filled" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.PersonAdd" 
+               Size="Size.Large" OnClick="@AbrirModalNovoCliente" 
+               Style="font-weight: 700; border-radius: 8px; box-shadow: 0 4px 14px rgba(242,100,25,0.4);">
+        Novo Cliente
+    </MudButton>
+</div>
+
+<MudPaper Elevation="4" Class="pa-6 mb-6" Style="border-radius: 12px;">
+    <!-- BUSCA -->
+    <MudGrid Class="mb-4">
+        <MudItem xs="12" sm="8" md="6">
+            <MudTextField @bind-Value="_busca" Label="Buscar por código, razão social ou CPF/CNPJ" 
+                          Variant="Variant.Outlined" Adornment="Adornment.Start" 
+                          AdornmentIcon="@Icons.Material.Filled.Search" Clearable="true" 
+                          OnKeyUp="@(async (e) => { if (e.Key == "Enter") await CarregarClientesAsync(); })" />
+        </MudItem>
+        <MudItem xs="12" sm="4" md="6" Class="d-flex align-center justify-end gap-2">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@CarregarClientesAsync" 
+                       StartIcon="@Icons.Material.Filled.FilterAlt">
+                Buscar
+            </MudButton>
+        </MudItem>
+    </MudGrid>
+
+    @if (_carregando)
+    {
+        <div class="d-flex justify-center align-center py-12">
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Large" />
+        </div>
+    }
+    else
+    {
+        <MudTable Items="@_clientes" Hover="true" Striped="true" Elevation="0">
+            <HeaderContent>
+                <MudTh>Código</MudTh>
+                <MudTh>Nome / Razão Social</MudTh>
+                <MudTh>Documento</MudTh>
+                <MudTh>Contatos</MudTh>
+                <MudTh>Telefone / E-mail</MudTh>
+                <MudTh>Cidade / UF</MudTh>
+                <MudTh Style="text-align: right;">Ações</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Código">
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary">
+                        @(string.IsNullOrWhiteSpace(context.CodigoCliente) ? "-" : context.CodigoCliente)
+                    </MudChip>
+                </MudTd>
+                <MudTd DataLabel="Nome">
+                    <MudText Typo="Typo.body2" Style="font-weight: 700;">@context.Nome</MudText>
+                </MudTd>
+                <MudTd DataLabel="Documento">
+                    @(string.IsNullOrWhiteSpace(context.Documento) ? "-" : context.Documento)
+                </MudTd>
+                <MudTd DataLabel="Contatos">
+                    @if (context.Contatos.Any())
+                    {
+                        @foreach (var contato in context.Contatos)
+                        {
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="Color.Surface" Class="mr-1">
+                                @contato.Nome @(string.IsNullOrWhiteSpace(contato.Cargo) ? "" : $"({contato.Cargo})")
+                            </MudChip>
+                        }
+                    }
+                    else
+                    {
+                        <span style="color: #94A3B8;">Nenhum contato</span>
+                    }
+                </MudTd>
+                <MudTd DataLabel="Contato">
+                    <div>@context.Telefone</div>
+                    <div style="font-size: 0.8rem; color: #64748B;">@context.Email</div>
+                </MudTd>
+                <MudTd DataLabel="Localização">
+                    @context.Cidade / @context.Uf
+                </MudTd>
+                <MudTd DataLabel="Ações" Style="text-align: right;">
+                    <MudTooltip Text="Exclusão Lógica (preserva histórico)">
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" 
+                                       OnClick="@(() => ExcluirClienteAsync(context.Id, context.Nome))" />
+                    </MudTooltip>
+                </MudTd>
+            </RowTemplate>
+            <NoRecordsContent>
+                <div class="pa-8 text-center">
+                    <MudIcon Icon="@Icons.Material.Filled.PersonOff" Size="Size.Large" Color="Color.Default" />
+                    <MudText Typo="Typo.h6" Class="mt-2">Nenhum cliente cadastrado</MudText>
+                </div>
+            </NoRecordsContent>
+        </MudTable>
+    }
+</MudPaper>
+
+<!-- MODAL NOVO CLIENTE -->
+<MudDialog @bind-Visible="_modalNovoClienteAberto" Options="_dialogOptions">
+    <TitleContent>
+        <MudText Typo="Typo.h6" Style="font-weight: 700;">Novo Cliente Comercial</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudGrid>
+            <MudItem xs="12" sm="4">
+                <MudTextField T="string" Label="Código do Cliente" Variant="Variant.Outlined" @bind-Value="_novoCliente.CodigoCliente" Placeholder="Ex: 3223" />
+            </MudItem>
+            <MudItem xs="12" sm="8">
+                <MudTextField T="string" Label="Nome ou Razão Social" Variant="Variant.Outlined" @bind-Value="_novoCliente.Nome" Required="true" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudTextField T="string" Label="CPF / CNPJ" Variant="Variant.Outlined" @bind-Value="_novoCliente.Documento" Placeholder="000.000.000-00" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudTextField T="string" Label="Telefone" Variant="Variant.Outlined" @bind-Value="_novoCliente.Telefone" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudTextField T="string" Label="E-mail" Variant="Variant.Outlined" @bind-Value="_novoCliente.Email" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudTextField T="string" Label="Cidade" Variant="Variant.Outlined" @bind-Value="_novoCliente.Cidade" />
+            </MudItem>
+            <MudItem xs="12">
+                <MudTextField T="string" Label="Nome do Contato Principal" Variant="Variant.Outlined" @bind-Value="_nomeContato" Placeholder="Ex: Thais" />
+            </MudItem>
+        </MudGrid>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => _modalNovoClienteAberto = false)">Cancelar</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="@SalvarNovoClienteAsync">Salvar Cliente</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private bool _carregando = true;
+    private List<ClienteDto> _clientes = new();
+    private string? _busca;
+
+    private bool _modalNovoClienteAberto = false;
+    private CriarClienteRequest _novoCliente = new();
+    private string? _nomeContato;
+
+    private readonly DialogOptions _dialogOptions = new() { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CarregarClientesAsync();
+    }
+
+    private async Task CarregarClientesAsync()
+    {
+        try
+        {
+            _carregando = true;
+            _clientes = await ClienteService.ListarAsync(_busca);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Erro ao carregar clientes: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _carregando = false;
+        }
+    }
+
+    private void AbrirModalNovoCliente()
+    {
+        _novoCliente = new CriarClienteRequest { Cidade = "São Paulo", Uf = "SP" };
+        _nomeContato = null;
+        _modalNovoClienteAberto = true;
+    }
+
+    private async Task SalvarNovoClienteAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_novoCliente.Nome))
+        {
+            Snackbar.Add("O nome do cliente é obrigatório.", Severity.Warning);
+            return;
+        }
+
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(_nomeContato))
+            {
+                _novoCliente.Contatos.Add(new CriarContatoRequest
+                {
+                    Nome = _nomeContato,
+                    Principal = true
+                });
+            }
+
+            await ClienteService.CriarAsync(_novoCliente, "Suzana Gomes");
+            Snackbar.Add("Cliente cadastrado com sucesso!", Severity.Success);
+            _modalNovoClienteAberto = false;
+            await CarregarClientesAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Erro ao cadastrar cliente: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task ExcluirClienteAsync(long id, string nome)
+    {
+        try
+        {
+            var ok = await ClienteService.ExcluirLogicoAsync(id, "Suzana Gomes");
+            if (ok)
+            {
+                Snackbar.Add($"Cliente '{nome}' desativado (soft delete preservou as propostas).", Severity.Info);
+                await CarregarClientesAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Erro ao desativar cliente: {ex.Message}", Severity.Error);
+        }
+    }
+}

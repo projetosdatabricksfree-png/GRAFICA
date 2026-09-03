@@ -1,0 +1,192 @@
+@page "/"
+@inject IDashboardService DashboardService
+@inject IPdfService PdfService
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+
+<PageTitle>Dashboard • AgsPrint</PageTitle>
+
+<div class="d-flex justify-space-between align-center mb-6">
+    <div>
+        <MudText Typo="Typo.h4" Style="font-weight: 800; letter-spacing: -0.5px;">Painel Comercial</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary">Visão consolidada de orçamentos, conversão e pipeline gráfico</MudText>
+    </div>
+    <MudButton Variant="Variant.Filled" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Add" 
+               Size="Size.Large" OnClick="@(() => Nav.NavigateTo("/propostas/nova"))" 
+               Style="font-weight: 700; border-radius: 8px; box-shadow: 0 4px 14px rgba(242,100,25,0.4);">
+        Novo Orçamento
+    </MudButton>
+</div>
+
+@if (_carregando)
+{
+    <div class="d-flex justify-center align-center py-12">
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Large" />
+    </div>
+}
+else if (_resumo != null)
+{
+    <!-- CARDS DE KPIS -->
+    <MudGrid Class="mb-6">
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Elevation="4" Class="pa-4 d-flex align-center justify-space-between" Style="border-left: 5px solid #0F4C81; border-radius: 12px;">
+                <div>
+                    <MudText Typo="Typo.caption" Style="color: #64748B; font-weight: 700; text-transform: uppercase;">Total Propostas</MudText>
+                    <MudText Typo="Typo.h4" Style="font-weight: 800; color: #0F4C81;">@_resumo.TotalPropostas</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Default">Orçamentos gerados</MudText>
+                </div>
+                <MudAvatar Color="Color.Primary" Variant="Variant.Filled" Size="Size.Large">
+                    <MudIcon Icon="@Icons.Material.Filled.ReceiptLong" Size="Size.Medium" />
+                </MudAvatar>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Elevation="4" Class="pa-4 d-flex align-center justify-space-between" Style="border-left: 5px solid #F26419; border-radius: 12px;">
+                <div>
+                    <MudText Typo="Typo.caption" Style="color: #64748B; font-weight: 700; text-transform: uppercase;">Em Negociação</MudText>
+                    <MudText Typo="Typo.h4" Style="font-weight: 800; color: #F26419;">@_resumo.PropostasAbertas</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Default">Aguardando aprovação</MudText>
+                </div>
+                <MudAvatar Color="Color.Secondary" Variant="Variant.Filled" Size="Size.Large">
+                    <MudIcon Icon="@Icons.Material.Filled.PendingActions" Size="Size.Medium" />
+                </MudAvatar>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Elevation="4" Class="pa-4 d-flex align-center justify-space-between" Style="border-left: 5px solid #10B981; border-radius: 12px;">
+                <div>
+                    <MudText Typo="Typo.caption" Style="color: #64748B; font-weight: 700; text-transform: uppercase;">Aprovadas</MudText>
+                    <MudText Typo="Typo.h4" Style="font-weight: 800; color: #10B981;">@_resumo.PropostasAprovadas</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Default">Convertidas em venda</MudText>
+                </div>
+                <MudAvatar Color="Color.Success" Variant="Variant.Filled" Size="Size.Large">
+                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Medium" />
+                </MudAvatar>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Elevation="4" Class="pa-4 d-flex align-center justify-space-between" Style="border-left: 5px solid #2E86AB; border-radius: 12px;">
+                <div>
+                    <MudText Typo="Typo.caption" Style="color: #64748B; font-weight: 700; text-transform: uppercase;">Volume Orçado</MudText>
+                    <MudText Typo="Typo.h5" Style="font-weight: 800; color: #2E86AB;">R$ @_resumo.ValorTotalOrcado.ToString("N2")</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Default">R$ @_resumo.ValorTotalAprovado.ToString("N2") aprovado</MudText>
+                </div>
+                <MudAvatar Color="Color.Info" Variant="Variant.Filled" Size="Size.Large">
+                    <MudIcon Icon="@Icons.Material.Filled.AttachMoney" Size="Size.Medium" />
+                </MudAvatar>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    <!-- ULTIMAS PROPOSTAS COM ELEVATION="4" -->
+    <MudPaper Elevation="4" Class="pa-6" Style="border-radius: 12px;">
+        <div class="d-flex justify-space-between align-center mb-4">
+            <div>
+                <MudText Typo="Typo.h6" Style="font-weight: 700;">Últimas Propostas Emitidas</MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Acesso rápido aos orçamentos recentes e geração de PDF</MudText>
+            </div>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" EndIcon="@Icons.Material.Filled.ArrowForward" 
+                       OnClick="@(() => Nav.NavigateTo("/propostas"))" Size="Size.Small">
+                Ver Todas
+            </MudButton>
+        </div>
+
+        <MudTable Items="@_resumo.UltimasPropostas" Hover="true" Dense="true" Elevation="0" Striped="true">
+            <HeaderContent>
+                <MudTh>Código</MudTh>
+                <MudTh>Cliente</MudTh>
+                <MudTh>Representante</MudTh>
+                <MudTh>Data de Emissão</MudTh>
+                <MudTh>Valor Total</MudTh>
+                <MudTh>Status</MudTh>
+                <MudTh Style="text-align: right;">Ações</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Código">
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary" Style="font-weight: 700;">
+                        #@context.Codigo
+                    </MudChip>
+                </MudTd>
+                <MudTd DataLabel="Cliente">
+                    <MudText Typo="Typo.body2" Style="font-weight: 700;">@context.ClienteNome</MudText>
+                </MudTd>
+                <MudTd DataLabel="Representante">
+                    <MudText Typo="Typo.body2">@context.RepresentanteNome</MudText>
+                </MudTd>
+                <MudTd DataLabel="Data">
+                    <MudText Typo="Typo.body2">@context.DataEmissao.ToString("dd/MM/yyyy")</MudText>
+                </MudTd>
+                <MudTd DataLabel="Valor Total">
+                    <MudText Typo="Typo.body2" Style="font-weight: 700; color: #059669;">
+                        R$ @context.ValorTotal.ToString("N2")
+                    </MudText>
+                </MudTd>
+                <MudTd DataLabel="Status">
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" 
+                             Style="@($"background-color: {context.StatusCorHex}; color: white; font-weight: 600;")">
+                        @context.StatusNome
+                    </MudChip>
+                </MudTd>
+                <MudTd DataLabel="Ações" Style="text-align: right;">
+                    <div class="d-flex justify-end gap-1">
+                        <MudTooltip Text="Baixar PDF QuestPDF">
+                            <MudIconButton Icon="@Icons.Material.Filled.PictureAsPdf" Color="Color.Error" Size="Size.Small" 
+                                           OnClick="@(() => BaixarPdfAsync(context.Id, context.Codigo))" />
+                        </MudTooltip>
+                        <MudTooltip Text="Visualizar / Editar">
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" 
+                                           OnClick="@(() => Nav.NavigateTo($"/propostas/{context.Id}/editar"))" />
+                        </MudTooltip>
+                    </div>
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    </MudPaper>
+}
+
+@code {
+    private bool _carregando = true;
+    private DashboardSummaryDto? _resumo;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CarregarDadosAsync();
+    }
+
+    private async Task CarregarDadosAsync()
+    {
+        try
+        {
+            _carregando = true;
+            _resumo = await DashboardService.ObterResumoAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Erro ao carregar dashboard: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _carregando = false;
+        }
+    }
+
+    private async Task BaixarPdfAsync(long id, long codigo)
+    {
+        try
+        {
+            Snackbar.Add($"Gerando PDF da proposta #{codigo}...", Severity.Info);
+            var bytes = await PdfService.GerarPropostaPdfAsync(id);
+            var base64 = Convert.ToBase64String(bytes);
+            await JS.InvokeVoidAsync("downloadFileFromBase64", $"Proposta_{codigo}.pdf", base64);
+            Snackbar.Add($"PDF #{codigo} baixado com sucesso!", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Erro ao gerar PDF: {ex.Message}", Severity.Error);
+        }
+    }
+}

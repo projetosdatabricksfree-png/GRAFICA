@@ -1,0 +1,148 @@
+@inherits LayoutComponentBase
+
+<MudThemeProvider Theme="_theme" IsDarkMode="_isDarkMode" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout>
+    <MudAppBar Elevation="3" Dense="false" Color="Color.Primary" Class="px-4">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@ToggleDrawer" />
+        <div class="d-flex align-center gap-2 ml-2">
+            <MudIcon Icon="@Icons.Material.Filled.Print" Size="Size.Large" Color="Color.Secondary" />
+            <div>
+                <MudText Typo="Typo.h6" Style="font-weight: 800; letter-spacing: -0.5px; line-height: 1.2;">
+                    AGS<span style="color: #F26419;">PRINT</span>
+                </MudText>
+                <MudText Typo="Typo.caption" Style="opacity: 0.8; font-size: 0.72rem;">
+                    Soluções Gráficas • Sistema de Gestão de Propostas
+                </MudText>
+            </div>
+        </div>
+
+        <MudSpacer />
+
+        <div class="d-flex align-center gap-3">
+            <MudChip T="string" Icon="@Icons.Material.Filled.Person" Color="Color.Surface" Variant="Variant.Filled" Size="Size.Small" Style="font-weight: 600;">
+                Suzana Gomes (Representante)
+            </MudChip>
+            
+            <MudTooltip Text="@(_isDarkMode ? "Modo Claro" : "Modo Escuro")">
+                <MudIconButton Icon="@(_isDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)" 
+                               Color="Color.Inherit" 
+                               OnClick="@(() => _isDarkMode = !_isDarkMode)" />
+            </MudTooltip>
+        </div>
+    </MudAppBar>
+
+    <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2" Variant="DrawerVariant.Responsive" OpenMiniOnHover="false">
+        <MudDrawerHeader Class="d-flex align-center py-3 px-4" Style="border-bottom: 1px solid rgba(255,255,255,0.08);">
+            <MudAvatar Color="Color.Secondary" Variant="Variant.Filled" Size="Size.Medium">
+                <MudIcon Icon="@Icons.Material.Filled.Business" Size="Size.Small" />
+            </MudAvatar>
+            <div class="ml-3">
+                <MudText Typo="Typo.subtitle2" Style="font-weight: 700;">Unidade Paulista</MudText>
+                <MudText Typo="Typo.caption" Style="opacity: 0.7;">SP Laser Cópias Ltda</MudText>
+            </div>
+        </MudDrawerHeader>
+
+        <MudNavMenu Bordered="true" Color="Color.Primary" Class="pa-2">
+            <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">
+                Dashboard
+            </MudNavLink>
+            
+            <MudNavGroup Title="Propostas Comerciais" Icon="@Icons.Material.Filled.ReceiptLong" Expanded="true">
+                <MudNavLink Href="/propostas" Icon="@Icons.Material.Filled.ListAlt">
+                    Todas as Propostas
+                </MudNavLink>
+                <MudNavLink Href="/propostas/nova" Icon="@Icons.Material.Filled.AddCircleOutline">
+                    Novo Orçamento
+                </MudNavLink>
+            </MudNavGroup>
+
+            <MudNavGroup Title="Cadastros" Icon="@Icons.Material.Filled.FolderShared" Expanded="true">
+                <MudNavLink Href="/clientes" Icon="@Icons.Material.Filled.PeopleAlt">
+                    Clientes & Contatos
+                </MudNavLink>
+            </MudNavGroup>
+        </MudNavMenu>
+
+        <div class="mt-auto pa-4" style="border-top: 1px solid rgba(255,255,255,0.08);">
+            <MudPaper Class="pa-3" Elevation="0" Style="background: rgba(255,255,255,0.04); border-radius: 8px;">
+                <MudText Typo="Typo.caption" Style="color: #94A3B8; font-weight: 600;">Status do Banco</MudText>
+                <div class="d-flex align-center gap-1 mt-1">
+                    <span style="width: 8px; height: 8px; border-radius: 50%; background: #10B981;"></span>
+                    <MudText Typo="Typo.caption" Style="color: #10B981; font-weight: 700;">PostgreSQL Online</MudText>
+                </div>
+            </MudPaper>
+        </div>
+    </MudDrawer>
+
+    <MudMainContent Class="pa-4 pa-md-6" Style="min-height: 100vh; background: var(--mud-palette-background);">
+        @Body
+    </MudMainContent>
+</MudLayout>
+
+@code {
+    private bool _drawerOpen = true;
+    private bool _isDarkMode = false;
+
+    private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
+
+    private readonly MudTheme _theme = new()
+    {
+        PaletteLight = new PaletteLight
+        {
+            Primary = "#0F4C81",          // Azul gráfico corporativo Inprima
+            Secondary = "#F26419",        // Laranja vibrante de ação/destaque
+            Tertiary = "#2E86AB",
+            AppbarBackground = "#0A2E50",
+            AppbarText = "#FFFFFF",
+            DrawerBackground = "#0F172A", // Dark Slate para a sidebar
+            DrawerText = "#E2E8F0",
+            DrawerIcon = "#94A3B8",
+            Background = "#F1F5F9",       // Fundo cinza suave e elegante
+            Surface = "#FFFFFF",
+            TextPrimary = "#0F172A",
+            TextSecondary = "#475569",
+            Success = "#059669",
+            Warning = "#D97706",
+            Error = "#DC2626",
+            Info = "#0284C7",
+            LinesDefault = "#E2E8F0",
+            TableLines = "#E2E8F0"
+        },
+        PaletteDark = new PaletteDark
+        {
+            Primary = "#38BDF8",
+            Secondary = "#FB923C",
+            Tertiary = "#818CF8",
+            AppbarBackground = "#0B132B",
+            AppbarText = "#F8FAFC",
+            DrawerBackground = "#090E17",
+            DrawerText = "#CBD5E1",
+            DrawerIcon = "#64748B",
+            Background = "#0F172A",
+            Surface = "#1E293B",
+            TextPrimary = "#F8FAFC",
+            TextSecondary = "#94A3B8",
+            Success = "#34D399",
+            Warning = "#FBBF24",
+            Error = "#F87171",
+            Info = "#38BDF8",
+            LinesDefault = "#334155",
+            TableLines = "#334155"
+        },
+        Typography = new Typography
+        {
+            Default = new DefaultTypography
+            {
+                FontFamily = new[] { "Plus Jakarta Sans", "Roboto", "Segoe UI", "sans-serif" }
+            }
+        },
+        LayoutProperties = new LayoutProperties
+        {
+            DefaultBorderRadius = "8px"
+        }
+    };
+}

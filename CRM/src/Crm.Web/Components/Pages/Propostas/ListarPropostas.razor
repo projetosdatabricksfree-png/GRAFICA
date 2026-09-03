@@ -1,0 +1,231 @@
+@page "/propostas"
+@inject IPropostaService PropostaService
+@inject IClienteService ClienteService
+@inject IPdfService PdfService
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+
+<PageTitle>Propostas Comerciais • AgsPrint</PageTitle>
+
+<div class="d-flex justify-space-between align-center mb-6">
+    <div>
+        <MudText Typo="Typo.h4" Style="font-weight: 800; letter-spacing: -0.5px;">Propostas & Orçamentos</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary">Gestão completa do ciclo de vida de propostas comerciais gráficas</MudText>
+    </div>
+    <MudButton Variant="Variant.Filled" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Add" 
+               Size="Size.Large" OnClick="@(() => Nav.NavigateTo("/propostas/nova"))" 
+               Style="font-weight: 700; border-radius: 8px; box-shadow: 0 4px 14px rgba(242,100,25,0.4);">
+        Novo Orçamento
+    </MudButton>
+</div>
+
+<MudPaper Elevation="4" Class="pa-6 mb-6" Style="border-radius: 12px;">
+    <!-- FILTROS E BUSCA -->
+    <MudGrid Class="mb-4 align-center">
+        <MudItem xs="12" sm="6" md="5">
+            <MudTextField @bind-Value="_busca" Label="Buscar por código, cliente ou representante" 
+                          Variant="Variant.Outlined" Adornment="Adornment.Start" 
+                          AdornmentIcon="@Icons.Material.Filled.Search" Clearable="true" 
+                          OnKeyUp="@(async (e) => { if (e.Key == "Enter") await CarregarPropostasAsync(); })" />
+        </MudItem>
+        <MudItem xs="12" sm="4" md="3">
+            <MudSelect T="int?" Label="Filtrar por Status" Variant="Variant.Outlined" Value="_statusFiltro" 
+                       ValueChanged="@(async (v) => { _statusFiltro = v; await CarregarPropostasAsync(); })" Clearable="true">
+                <MudSelectItem T="int?" Value="@((int?)null)">Todos os Status</MudSelectItem>
+                <MudSelectItem T="int?" Value="@((int?)1)">Rascunho</MudSelectItem>
+                <MudSelectItem T="int?" Value="@((int?)2)">Enviada</MudSelectItem>
+                <MudSelectItem T="int?" Value="@((int?)3)">Aprovada</MudSelectItem>
+                <MudSelectItem T="int?" Value="@((int?)4)">Recusada</MudSelectItem>
+                <MudSelectItem T="int?" Value="@((int?)5)">Cancelada</MudSelectItem>
+                <MudSelectItem T="int?" Value="@((int?)6)">Expirada</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" sm="2" md="4" Class="d-flex justify-end gap-2">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@CarregarPropostasAsync" 
+                       StartIcon="@Icons.Material.Filled.FilterAlt" Size="Size.Medium">
+                Filtrar
+            </MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Default" OnClick="@LimparFiltrosAsync" Size="Size.Medium">
+                Limpar
+            </MudButton>
+        </MudItem>
+    </MudGrid>
+
+    <!-- TABELA MUDTABLE COM ELEVAÇÃO E ACTIONS -->
+    @if (_carregando)
+    {
+        <div class="d-flex justify-center align-center py-12">
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Large" />
+        </div>
+    }
+    else
+    {
+        <MudTable Items="@_propostas" Hover="true" Striped="true" Elevation="0" Dense="false">
+            <HeaderContent>
+                <MudTh>Código</MudTh>
+                <MudTh>Data</MudTh>
+                <MudTh>Cliente</MudTh>
+                <MudTh>Representante</MudTh>
+                <MudTh>Forma Pgto.</MudTh>
+                <MudTh>Itens</MudTh>
+                <MudTh>Valor Total</MudTh>
+                <MudTh>Status</MudTh>
+                <MudTh Style="text-align: right;">Ações</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Código">
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary" Style="font-weight: 700;">
+                        #@context.Codigo
+                    </MudChip>
+                </MudTd>
+                <MudTd DataLabel="Data">@context.DataEmissao.ToString("dd/MM/yyyy")</MudTd>
+                <MudTd DataLabel="Cliente">
+                    <MudText Typo="Typo.body2" Style="font-weight: 700;">@context.ClienteNome</MudText>
+                    @if (!string.IsNullOrWhiteSpace(context.ContatoNome))
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">A/C @context.ContatoNome</MudText>
+                    }
+                </MudTd>
+                <MudTd DataLabel="Representante">@context.RepresentanteNome</MudTd>
+                <MudTd DataLabel="Forma Pgto.">@context.FormaPagamentoNome</MudTd>
+                <MudTd DataLabel="Itens">
+                    <MudBadge Content="@context.Itens.Count" Color="Color.Info" Overlap="false">
+                        <MudIcon Icon="@Icons.Material.Filled.Inventory2" Size="Size.Small" />
+                    </MudBadge>
+                </MudTd>
+                <MudTd DataLabel="Valor Total">
+                    <MudText Typo="Typo.body2" Style="font-weight: 800; color: #059669;">
+                        R$ @context.ValorTotal.ToString("N2")
+                    </MudText>
+                </MudTd>
+                <MudTd DataLabel="Status">
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" 
+                             Style="@($"background-color: {context.StatusCorHex}; color: white; font-weight: 600;")">
+                        @context.StatusNome
+                    </MudChip>
+                </MudTd>
+                <MudTd DataLabel="Ações" Style="text-align: right;">
+                    <div class="d-flex justify-end gap-1">
+                        <MudTooltip Text="Baixar PDF QuestPDF">
+                            <MudIconButton Icon="@Icons.Material.Filled.PictureAsPdf" Color="Color.Error" Size="Size.Small" 
+                                           OnClick="@(() => BaixarPdfAsync(context.Id, context.Codigo))" />
+                        </MudTooltip>
+                        
+                        <MudTooltip Text="Duplicar / Clonar Proposta">
+                            <MudIconButton Icon="@Icons.Material.Filled.ContentCopy" Color="Color.Secondary" Size="Size.Small" 
+                                           OnClick="@(() => ClonarPropostaAsync(context.Id, context.Codigo))" />
+                        </MudTooltip>
+
+                        <MudTooltip Text="Editar Proposta">
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" 
+                                           OnClick="@(() => Nav.NavigateTo($"/propostas/{context.Id}/editar"))" />
+                        </MudTooltip>
+
+                        <MudMenu Icon="@Icons.Material.Filled.MoreVert" Size="Size.Small" Dense="true">
+                            <MudMenuItem Icon="@Icons.Material.Filled.Send" OnClick="@(() => MudarStatusAsync(context.Id, 2))">
+                                Marcar como Enviada
+                            </MudMenuItem>
+                            <MudMenuItem Icon="@Icons.Material.Filled.CheckCircle" OnClick="@(() => MudarStatusAsync(context.Id, 3))">
+                                Marcar como Aprovada
+                            </MudMenuItem>
+                            <MudMenuItem Icon="@Icons.Material.Filled.Cancel" OnClick="@(() => MudarStatusAsync(context.Id, 4))">
+                                Marcar como Recusada
+                            </MudMenuItem>
+                        </MudMenu>
+                    </div>
+                </MudTd>
+            </RowTemplate>
+            <NoRecordsContent>
+                <div class="pa-8 text-center">
+                    <MudIcon Icon="@Icons.Material.Filled.SearchOff" Size="Size.Large" Color="Color.Default" />
+                    <MudText Typo="Typo.h6" Class="mt-2">Nenhuma proposta encontrada</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Tente ajustar os filtros ou crie um novo orçamento.</MudText>
+                </div>
+            </NoRecordsContent>
+        </MudTable>
+    }
+</MudPaper>
+
+@code {
+    private bool _carregando = true;
+    private List<PropostaDto> _propostas = new();
+    private string? _busca;
+    private int? _statusFiltro;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CarregarPropostasAsync();
+    }
+
+    private async Task CarregarPropostasAsync()
+    {
+        try
+        {
+            _carregando = true;
+            _propostas = await PropostaService.ListarAsync(_statusFiltro, null, _busca, 1, 50);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Erro ao listar propostas: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _carregando = false;
+        }
+    }
+
+    private async Task LimparFiltrosAsync()
+    {
+        _busca = null;
+        _statusFiltro = null;
+        await CarregarPropostasAsync();
+    }
+
+    private async Task BaixarPdfAsync(long id, long codigo)
+    {
+        try
+        {
+            Snackbar.Add($"Gerando PDF QuestPDF da proposta #{codigo}...", Severity.Info);
+            var bytes = await PdfService.GerarPropostaPdfAsync(id);
+            var base64 = Convert.ToBase64String(bytes);
+            await JS.InvokeVoidAsync("downloadFileFromBase64", $"Proposta_{codigo}.pdf", base64);
+            Snackbar.Add($"PDF #{codigo} baixado com sucesso!", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Erro ao gerar PDF: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task ClonarPropostaAsync(long id, long codigo)
+    {
+        try
+        {
+            var clone = await PropostaService.ClonarAsync(id, "Suzana Gomes");
+            Snackbar.Add($"Proposta #{codigo} duplicada com sucesso para #{clone.Codigo}!", Severity.Success);
+            await CarregarPropostasAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Erro ao clonar proposta: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task MudarStatusAsync(long id, int statusId)
+    {
+        try
+        {
+            var ok = await PropostaService.AlterarStatusAsync(id, statusId, "Alterado pela listagem", "Suzana Gomes");
+            if (ok)
+            {
+                Snackbar.Add("Status atualizado com sucesso!", Severity.Success);
+                await CarregarPropostasAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Erro ao atualizar status: {ex.Message}", Severity.Error);
+        }
+    }
+}
